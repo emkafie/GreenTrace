@@ -1,122 +1,155 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect, useMemo } from 'react';
+import Header from './components/Header';
+import Filters from './components/Filters';
+import IncidentList from './components/IncidentList';
+import CreateIncidentModal from './components/CreateIncidentModal';
+import ConfirmModal from './components/ConfirmModal';
+import {
+  fetchIncidents as apiFetchIncidents,
+  createIncident,
+  updateIncidentStatus,
+  deleteIncident,
+} from './services/incidentApi';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ severity: '', status: '' });
+  const [showModal, setShowModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Confirmation modal state
+  const [confirmAction, setConfirmAction] = useState(null);
+  // { action: 'IN_PROGRESS' | 'RESOLVED' | 'DELETE', id: number, title: string }
+
+  // ---- Data fetching ----
+  const loadIncidents = async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetchIncidents(filters);
+      setIncidents(data);
+    } catch (error) {
+      console.error('Gagal mengambil data:', error);
+      alert('Gagal terhubung ke server backend.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let ignore = false;
+    const fetchData = async () => {
+      try {
+        const data = await apiFetchIncidents(filters);
+        if (!ignore) {
+          setIncidents(data);
+          setLoading(false);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error('Gagal mengambil data:', error);
+          alert('Gagal terhubung ke server backend.');
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+    return () => {
+      ignore = true;
+    };
+  }, [filters]);
+
+  // ---- Client-side search filtering ----
+  const filteredIncidents = useMemo(() => {
+    if (!searchQuery.trim()) return incidents;
+    const query = searchQuery.toLowerCase();
+    return incidents.filter(
+      (inc) =>
+        (inc.title && inc.title.toLowerCase().includes(query)) ||
+        (inc.description && inc.description.toLowerCase().includes(query)) ||
+        (inc.created_by && inc.created_by.toLowerCase().includes(query))
+    );
+  }, [incidents, searchQuery]);
+
+  // ---- Event handlers ----
+  const handleFilterChange = (newFilters) => {
+    setLoading(true);
+    setFilters(newFilters);
+  };
+
+  const handleCreate = async (formData) => {
+    try {
+      await createIncident(formData);
+      setShowModal(false);
+      loadIncidents();
+    } catch (error) {
+      console.error('Gagal membuat insiden:', error);
+    }
+  };
+
+  // Instead of directly calling the API, open confirmation modal
+  const handleRequestUpdateStatus = (id, newStatus) => {
+    const incident = incidents.find((inc) => inc.id === id);
+    setConfirmAction({ action: newStatus, id, title: incident?.title || '' });
+  };
+
+  const handleRequestDelete = (id) => {
+    const incident = incidents.find((inc) => inc.id === id);
+    setConfirmAction({ action: 'DELETE', id, title: incident?.title || '' });
+  };
+
+  // Actual confirm handler — called when user clicks "Ya, ..."
+  const handleConfirm = async () => {
+    if (!confirmAction) return;
+    const { action, id } = confirmAction;
+    setConfirmAction(null);
+
+    try {
+      if (action === 'DELETE') {
+        await deleteIncident(id);
+      } else {
+        await updateIncidentStatus(id, action);
+      }
+      loadIncidents();
+    } catch (error) {
+      console.error('Gagal melakukan aksi:', error);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Header onOpenModal={() => setShowModal(true)} />
+        <Filters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
+        <IncidentList
+          incidents={filteredIncidents}
+          loading={loading}
+          onUpdateStatus={handleRequestUpdateStatus}
+          onDelete={handleRequestDelete}
+        />
+      </div>
 
-      <div className="ticks"></div>
+      {showModal && (
+        <CreateIncidentModal
+          onClose={() => setShowModal(false)}
+          onSubmit={handleCreate}
+        />
+      )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {confirmAction && (
+        <ConfirmModal
+          action={confirmAction.action}
+          incidentTitle={confirmAction.title}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+    </div>
+  );
 }
-
-export default App
