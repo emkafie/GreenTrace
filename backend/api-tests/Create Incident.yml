@@ -1,0 +1,27 @@
+info:
+  name: Create Incident
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:3000/api/incidents
+  params:
+    - name: ""
+      value: ""
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Mesin Pompa Meledak",
+        "description": "Terjadi ledakan pada mesin pompa",
+        "created_by": "User Biasa" 
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
