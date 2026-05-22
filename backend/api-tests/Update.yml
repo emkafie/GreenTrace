@@ -1,0 +1,21 @@
+info:
+  name: Update
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: http://localhost:3000/api/incidents/2
+  body:
+    type: json
+    data: |-
+      {
+        "status": "InProgress"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

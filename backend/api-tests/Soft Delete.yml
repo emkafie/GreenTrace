@@ -1,0 +1,15 @@
+info:
+  name: Soft Delete
+  type: http
+  seq: 7
+
+http:
+  method: DELETE
+  url: http://localhost:3000/api/incidents/1
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
