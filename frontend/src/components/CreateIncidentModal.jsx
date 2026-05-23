@@ -47,10 +47,6 @@ export default function CreateIncidentModal({ onClose, onSubmit }) {
                 setFormData({ ...formData, description: e.target.value })
               }
             ></textarea>
-            <p className="text-xs text-gray-500 mt-1">
-              Hint: Coba ketik &quot;bocor&quot; atau &quot;mati total&quot;
-              untuk tes anomali.
-            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
