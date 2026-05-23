@@ -1,10 +1,32 @@
-import { Trash2, CheckCircle } from 'lucide-react';
+import { Trash2, CheckCircle, Clock } from 'lucide-react';
 import { SeverityBadge, StatusBadge } from '../utils/badges';
 import { getRowStyle } from '../utils/styles';
+
+/**
+ * Format ISO timestamp ke format lokal Indonesia yang ringkas.
+ * Contoh: "24 Mei 2026, 01:30"
+ */
+const formatDate = (isoString) => {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  return date.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export default function IncidentCard({ incident, onUpdateStatus, onDelete, userRole }) {
   const isAdmin = userRole === 'ADMIN';
   const isDeleted = !!incident.deleted_at;
+
+  // Cek apakah updated_at berbeda dari created_at (artinya ada perubahan status)
+  const hasBeenUpdated =
+    incident.updated_at &&
+    incident.created_at &&
+    new Date(incident.updated_at).getTime() !== new Date(incident.created_at).getTime();
 
   return (
     <div
@@ -30,6 +52,20 @@ export default function IncidentCard({ incident, onUpdateStatus, onDelete, userR
           {incident.title}
         </h3>
         <p className="text-gray-600 text-sm">{incident.description}</p>
+
+        {/* Timestamps */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 pt-1">
+          <span className="flex items-center gap-1">
+            <Clock size={11} />
+            Dibuat: {formatDate(incident.created_at)}
+          </span>
+          {hasBeenUpdated && (
+            <span className="flex items-center gap-1">
+              <Clock size={11} />
+              Diperbarui: {formatDate(incident.updated_at)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Actions Section — only if not deleted */}
