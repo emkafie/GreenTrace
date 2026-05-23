@@ -8,20 +8,45 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 const port = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
-// Middleware
-app.use(cors());
+// Enforce JWT_SECRET in production mode
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    console.error("❌ CRITICAL ERROR: JWT_SECRET environment variable is missing. Server cannot start in production.");
+    process.exit(1);
+  }
+  console.warn("⚠️ WARNING: JWT_SECRET environment variable is missing. Using insecure fallback secret key for development.");
+  return 'dev_fallback_secret_key_2026';
+})();
+
+// Middleware CORS
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+app.use(cors({
+  origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+  credentials: true
+}));
 app.use(express.json());
 
 // Konfigurasi Database PostgreSQL
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+const dbConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      user: process.env.DB_USER,
+      host: process.env.DB_HOST,
+      database: process.env.DB_NAME,
+      password: process.env.DB_PASSWORD,
+      port: process.env.DB_PORT,
+    };
+
+// Enable SSL dynamically (useful for cloud database like Supabase or AWS RDS)
+if (process.env.DB_SSL === 'true') {
+  dbConfig.ssl = { rejectUnauthorized: false };
+}
+
+const pool = new Pool(dbConfig);
 
 // ==========================================
 // 1. SETUP DATABASE SCHEMA & INDEXES (RAW SQL)
@@ -200,7 +225,8 @@ app.post('/api/auth/login', async (req, res) => {
       user: { id: user.id, username: user.username, role: user.role },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -218,7 +244,8 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
 
     res.status(200).json({ user: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -239,7 +266,8 @@ app.get('/api/settings/keywords', verifyToken, isAdmin, async (req, res) => {
 
     res.status(200).json({ keywords });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -262,7 +290,8 @@ app.put('/api/settings/keywords', verifyToken, isAdmin, async (req, res) => {
 
     res.status(200).json({ message: 'Keywords berhasil diperbarui.', keywords: keywordsString.split(',') });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -299,7 +328,8 @@ app.post('/api/incidents', verifyToken, async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -337,7 +367,8 @@ app.get('/api/incidents', verifyToken, async (req, res) => {
     const result = await pool.query(fetchQuery, queryParams);
     res.status(200).json({ data: result.rows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -360,7 +391,8 @@ app.put('/api/incidents/:id', verifyToken, isAdmin, async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: "Insiden tidak ditemukan" });
     res.status(200).json({ message: "Insiden diperbarui", data: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
@@ -380,7 +412,8 @@ app.delete('/api/incidents/:id', verifyToken, isAdmin, async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: "Insiden tidak ditemukan atau sudah dihapus" });
     res.status(200).json({ message: "Insiden berhasil dihapus (Soft Delete)" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API Error:', err);
+    res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
