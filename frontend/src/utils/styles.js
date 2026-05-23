@@ -6,6 +6,10 @@ export const getRowStyle = (severity) => {
   switch (severity) {
     case 'CRITICAL':
       return 'bg-red-50 border-l-4 border-red-600 shadow-sm';
+    case 'HIGH':
+      return 'bg-orange-50 border-l-4 border-orange-500 shadow-sm';
+    case 'MEDIUM':
+      return 'bg-amber-50 border-l-4 border-amber-400';
     default:
       return 'bg-white border-l-4 border-gray-200';
   }

@@ -11,6 +11,18 @@ export const SeverityBadge = ({ severity }) => {
           <AlertTriangle size={12} /> CRITICAL
         </span>
       );
+    case 'HIGH':
+      return (
+        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold flex items-center gap-1">
+          <AlertTriangle size={12} /> HIGH
+        </span>
+      );
+    case 'MEDIUM':
+      return (
+        <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-bold flex items-center gap-1">
+          <AlertCircle size={12} /> MEDIUM
+        </span>
+      );
     default:
       return (
         <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold">
