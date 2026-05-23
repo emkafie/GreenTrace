@@ -12,7 +12,8 @@ const getAuthHeaders = () => {
 };
 
 /**
- * Get urgent keywords — GET /api/settings/keywords (Admin only)
+ * Get all severity keywords — GET /api/settings/keywords (Admin only)
+ * Returns: { critical: string[], high: string[], medium: string[] }
  */
 export const getKeywords = async () => {
   const response = await fetch(`${API_BASE_URL}/keywords`, {
@@ -23,18 +24,18 @@ export const getKeywords = async () => {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.error || `HTTP ${response.status}`);
   }
-  const data = await response.json();
-  return data.keywords; // string[]
+  return response.json(); // { critical, high, medium }
 };
 
 /**
- * Update urgent keywords — PUT /api/settings/keywords (Admin only)
+ * Update all severity keywords — PUT /api/settings/keywords (Admin only)
+ * @param {{ critical: string[], high: string[], medium: string[] }} keywordGroups
  */
-export const updateKeywords = async (keywords) => {
+export const updateKeywords = async (keywordGroups) => {
   const response = await fetch(`${API_BASE_URL}/keywords`, {
     method: 'PUT',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ keywords }),
+    body: JSON.stringify(keywordGroups),
   });
 
   if (!response.ok) {
