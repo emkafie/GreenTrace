@@ -77,7 +77,7 @@ export default function LoginPage() {
         {/* Footer info */}
         <div className="relative z-10 flex items-center justify-between text-xs text-emerald-300/40">
           <span>&copy; {new Date().getFullYear()} Greenfields Indonesia.</span>
-          <span>v2.0</span>
+          <span>v1.0</span>
         </div>
       </div>
 
