@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Filter, Search, Trash2 } from 'lucide-react';
 
 export default function Filters({
@@ -9,6 +10,24 @@ export default function Filters({
   includeDeleted,
   onToggleDeleted,
 }) {
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search state with parent if search query is reset externally
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  // Debounce logic: trigger parent callback after user stops typing for 400ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      onSearchChange(localSearch);
+    }, 400);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [localSearch, onSearchChange]);
+
   const handleChange = (key, value) => {
     onFilterChange({ ...filters, [key]: value });
   };
@@ -20,10 +39,10 @@ export default function Filters({
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
-          className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+          className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-blue-500 transition-colors text-gray-900"
           placeholder="Cari judul atau deskripsi..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
         />
       </div>
 
@@ -32,7 +51,7 @@ export default function Filters({
         <Filter size={18} /> Filters:
       </div>
       <select
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
+        className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white text-gray-800"
         value={filters.severity}
         onChange={(e) => handleChange('severity', e.target.value)}
       >
@@ -41,7 +60,7 @@ export default function Filters({
         <option value="LOW">Low</option>
       </select>
       <select
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
+        className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white text-gray-800"
         value={filters.status}
         onChange={(e) => handleChange('status', e.target.value)}
       >
