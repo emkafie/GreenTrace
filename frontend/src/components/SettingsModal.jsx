@@ -1,10 +1,48 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Plus, Loader2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { getKeywords, updateKeywords } from '../services/settingsApi';
 
+// Konfigurasi tier untuk 3 level severity
+const TIERS = [
+  {
+    key: 'critical',
+    label: '🔴 CRITICAL',
+    description: 'Insiden fatal, mengancam nyawa, atau menghentikan seluruh pabrik',
+    tagBg: 'bg-red-100',
+    tagText: 'text-red-700',
+    tagHover: 'hover:bg-red-200',
+    borderColor: 'border-red-200',
+    headerBg: 'bg-red-50',
+  },
+  {
+    key: 'high',
+    label: '🟠 HIGH',
+    description: 'Insiden berat, mengganggu 1 line produksi, butuh penanganan hari ini',
+    tagBg: 'bg-orange-100',
+    tagText: 'text-orange-700',
+    tagHover: 'hover:bg-orange-200',
+    borderColor: 'border-orange-200',
+    headerBg: 'bg-orange-50',
+  },
+  {
+    key: 'medium',
+    label: '🟡 MEDIUM',
+    description: 'Insiden ringan/gejala awal, menurunkan efisiensi tapi pabrik tetap jalan',
+    tagBg: 'bg-amber-100',
+    tagText: 'text-amber-700',
+    tagHover: 'hover:bg-amber-200',
+    borderColor: 'border-amber-200',
+    headerBg: 'bg-amber-50',
+  },
+];
+
 export default function SettingsModal({ onClose }) {
-  const [keywords, setKeywords] = useState([]);
-  const [newKeyword, setNewKeyword] = useState('');
+  const [keywordGroups, setKeywordGroups] = useState({
+    critical: [],
+    high: [],
+    medium: [],
+  });
+  const [newKeywords, setNewKeywords] = useState({ critical: '', high: '', medium: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +53,13 @@ export default function SettingsModal({ onClose }) {
     const loadKeywords = async () => {
       try {
         const data = await getKeywords();
-        if (!ignore) setKeywords(data);
+        if (!ignore) {
+          setKeywordGroups({
+            critical: data.critical || [],
+            high: data.high || [],
+            medium: data.medium || [],
+          });
+        }
       } catch (err) {
         if (!ignore) setError('Gagal memuat keywords: ' + err.message);
       } finally {
@@ -26,26 +70,32 @@ export default function SettingsModal({ onClose }) {
     return () => { ignore = true; };
   }, []);
 
-  const handleAddKeyword = () => {
-    const trimmed = newKeyword.trim().toLowerCase();
+  const handleAddKeyword = (tierKey) => {
+    const trimmed = newKeywords[tierKey].trim().toLowerCase();
     if (!trimmed) return;
-    if (keywords.includes(trimmed)) {
-      setError('Keyword sudah ada dalam daftar.');
+    if (keywordGroups[tierKey].includes(trimmed)) {
+      setError(`Keyword "${trimmed}" sudah ada di ${tierKey.toUpperCase()}.`);
       return;
     }
-    setKeywords([...keywords, trimmed]);
-    setNewKeyword('');
+    setKeywordGroups({
+      ...keywordGroups,
+      [tierKey]: [...keywordGroups[tierKey], trimmed],
+    });
+    setNewKeywords({ ...newKeywords, [tierKey]: '' });
     setError('');
   };
 
-  const handleRemoveKeyword = (index) => {
-    setKeywords(keywords.filter((_, i) => i !== index));
+  const handleRemoveKeyword = (tierKey, index) => {
+    setKeywordGroups({
+      ...keywordGroups,
+      [tierKey]: keywordGroups[tierKey].filter((_, i) => i !== index),
+    });
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e, tierKey) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleAddKeyword();
+      handleAddKeyword(tierKey);
     }
   };
 
@@ -53,7 +103,7 @@ export default function SettingsModal({ onClose }) {
     setSaving(true);
     setError('');
     try {
-      await updateKeywords(keywords);
+      await updateKeywords(keywordGroups);
       onClose();
     } catch (err) {
       setError('Gagal menyimpan: ' + err.message);
@@ -62,14 +112,16 @@ export default function SettingsModal({ onClose }) {
     }
   };
 
+  const totalKeywords = keywordGroups.critical.length + keywordGroups.high.length + keywordGroups.medium.length;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">Settings</h2>
-            <p className="text-sm text-gray-500">Kelola kata kunci deteksi anomali</p>
+            <h2 className="text-xl font-bold text-gray-800">Keyword Deteksi Anomali</h2>
+            <p className="text-sm text-gray-500">Kelola kata kunci per level severity ({totalKeywords} total)</p>
           </div>
           <button
             onClick={onClose}
@@ -95,58 +147,85 @@ export default function SettingsModal({ onClose }) {
           </div>
         ) : (
           <>
-            {/* Keyword Tags */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Daftar Kata Kunci Bahaya ({keywords.length})
-              </label>
-              <div className="flex flex-wrap gap-2 min-h-[48px] p-3 bg-gray-50 rounded-lg border border-gray-200">
-                {keywords.length === 0 && (
-                  <span className="text-sm text-gray-400 italic">Belum ada keyword</span>
-                )}
-                {keywords.map((kw, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium group"
-                  >
-                    {kw}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveKeyword(index)}
-                      className="ml-0.5 p-0.5 rounded-full hover:bg-red-200 transition-colors"
-                      title="Hapus keyword"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
+            {/* Tier Sections */}
+            <div className="space-y-4 mb-6">
+              {TIERS.map((tier) => (
+                <div
+                  key={tier.key}
+                  className={`rounded-lg border ${tier.borderColor} overflow-hidden`}
+                >
+                  {/* Tier Header */}
+                  <div className={`${tier.headerBg} px-4 py-2.5`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-sm text-gray-800">
+                          {tier.label}
+                        </span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({keywordGroups[tier.key].length} keyword)
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{tier.description}</p>
+                  </div>
 
-            {/* Add Keyword */}
-            <div className="flex gap-2 mb-6">
-              <input
-                type="text"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-                placeholder="Tambah keyword baru..."
-                value={newKeyword}
-                onChange={(e) => setNewKeyword(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-              <button
-                type="button"
-                onClick={handleAddKeyword}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
-              >
-                <Plus size={16} /> Tambah
-              </button>
+                  {/* Tier Body */}
+                  <div className="p-3 bg-white">
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1.5 min-h-[36px] mb-2">
+                      {keywordGroups[tier.key].length === 0 && (
+                        <span className="text-xs text-gray-400 italic py-1">Belum ada keyword</span>
+                      )}
+                      {keywordGroups[tier.key].map((kw, index) => (
+                        <span
+                          key={index}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 ${tier.tagBg} ${tier.tagText} rounded-full text-xs font-medium`}
+                        >
+                          {kw}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKeyword(tier.key, index)}
+                            className={`ml-0.5 p-0.5 rounded-full ${tier.tagHover} transition-colors`}
+                            title="Hapus keyword"
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Add input */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className={`flex-1 border ${tier.borderColor} rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-offset-0 transition-all`}
+                        placeholder={`Tambah keyword ${tier.key}...`}
+                        value={newKeywords[tier.key]}
+                        onChange={(e) => setNewKeywords({ ...newKeywords, [tier.key]: e.target.value })}
+                        onKeyDown={(e) => handleKeyDown(e, tier.key)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddKeyword(tier.key)}
+                        className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        <Plus size={14} /> Tambah
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Description */}
-            <p className="text-xs text-gray-500 mb-4">
-              Jika judul atau deskripsi insiden mengandung salah satu kata kunci di atas, 
-              sistem akan otomatis menandai insiden sebagai <strong>CRITICAL</strong> dan anomali.
-            </p>
+            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-4">
+              <AlertCircle size={14} className="text-blue-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-blue-700">
+                Sistem memeriksa kata kunci dari prioritas tertinggi ke terendah.
+                Jika judul/deskripsi insiden mengandung keyword <strong>CRITICAL</strong>, maka langsung ditandai CRITICAL,
+                meskipun juga cocok dengan keyword tier di bawahnya. Jika tidak ada keyword yang cocok, severity otomatis menjadi <strong className="text-gray-500">LOW</strong>.
+              </p>
+            </div>
 
             {/* Actions */}
             <div className="flex justify-end gap-2">
