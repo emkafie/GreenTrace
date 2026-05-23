@@ -57,6 +57,8 @@ export default function Filters({
       >
         <option value="">Semua Severity</option>
         <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
         <option value="LOW">Low</option>
       </select>
       <select
