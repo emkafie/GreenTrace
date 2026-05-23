@@ -1,6 +1,6 @@
 import IncidentCard from './IncidentCard';
 
-export default function IncidentList({ incidents, loading, onUpdateStatus, onDelete }) {
+export default function IncidentList({ incidents, loading, onUpdateStatus, onDelete, userRole }) {
   if (loading) {
     return <div className="text-center py-10 text-gray-500">Memuat data...</div>;
   }
@@ -21,6 +21,7 @@ export default function IncidentList({ incidents, loading, onUpdateStatus, onDel
           incident={incident}
           onUpdateStatus={onUpdateStatus}
           onDelete={onDelete}
+          userRole={userRole}
         />
       ))}
     </div>
