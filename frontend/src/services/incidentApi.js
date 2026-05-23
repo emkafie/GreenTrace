@@ -26,11 +26,14 @@ const handleUnauthorized = (response) => {
  * Fetch all incidents with optional severity/status filters.
  * includeDeleted: boolean — admin-only, include soft-deleted records.
  */
-export const fetchIncidents = async (filters = {}, includeDeleted = false) => {
+export const fetchIncidents = async (filters = {}, includeDeleted = false, page = 1, limit = 10, search = '') => {
   const queryParams = new URLSearchParams();
   if (filters.severity) queryParams.append('severity', filters.severity);
   if (filters.status) queryParams.append('status', filters.status);
   if (includeDeleted) queryParams.append('include_deleted', 'true');
+  queryParams.append('page', page);
+  queryParams.append('limit', limit);
+  if (search && search.trim()) queryParams.append('search', search.trim());
 
   const response = await fetch(`${API_BASE_URL}?${queryParams.toString()}`, {
     headers: getAuthHeaders(),
@@ -39,7 +42,10 @@ export const fetchIncidents = async (filters = {}, includeDeleted = false) => {
   handleUnauthorized(response);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const result = await response.json();
-  return result.data || [];
+  return {
+    data: result.data || [],
+    pagination: result.pagination || { totalItems: 0, totalPages: 1, currentPage: 1, limit: 10 }
+  };
 };
 
 /**
