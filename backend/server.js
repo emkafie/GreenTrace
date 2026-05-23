@@ -5,9 +5,14 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Gunakan Helmet untuk security headers
+app.use(helmet());
 
 // Enforce JWT_SECRET in production mode
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
@@ -29,6 +34,15 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Rate Limiter khusus untuk endpoint login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 15, // batasi setiap IP maksimal 15 request per windowMs
+  message: { error: 'Terlalu banyak percobaan masuk dari IP ini. Silakan coba lagi setelah 15 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Konfigurasi Database PostgreSQL
 const dbConfig = process.env.DATABASE_URL
@@ -191,7 +205,7 @@ const detectAnomaly = async (description = '', title = '') => {
 // ==========================================
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -333,39 +347,68 @@ app.post('/api/incidents', verifyToken, async (req, res) => {
   }
 });
 
-// B. Read All Incidents (GET) — mendukung include_deleted untuk admin
+// B. Read All Incidents (GET) — mendukung include_deleted, pagination, dan search
 app.get('/api/incidents', verifyToken, async (req, res) => {
-  const { severity, status, include_deleted } = req.query;
+  const { severity, status, include_deleted, page = 1, limit = 10, search = '' } = req.query;
 
-  // Tentukan base WHERE: admin bisa lihat data terhapus
-  let fetchQuery;
-  if (include_deleted === 'true' && req.user.role === 'ADMIN') {
-    fetchQuery = `SELECT * FROM incident_logs WHERE 1=1`;
-  } else {
-    fetchQuery = `SELECT * FROM incident_logs WHERE deleted_at IS NULL`;
-  }
+  const parsedPage = Math.max(1, parseInt(page) || 1);
+  const parsedLimit = Math.max(1, Math.min(100, parseInt(limit) || 10));
+  const offset = (parsedPage - 1) * parsedLimit;
 
+  let queryConditions = [];
   const queryParams = [];
   let paramCount = 1;
 
+  // Tentukan base WHERE: admin bisa lihat data terhapus
+  if (include_deleted === 'true' && req.user.role === 'ADMIN') {
+    // Admin can see everything
+  } else {
+    queryConditions.push(`deleted_at IS NULL`);
+  }
+
   if (severity) {
-    fetchQuery += ` AND severity = $${paramCount}`;
+    queryConditions.push(`severity = $${paramCount}`);
     queryParams.push(severity);
     paramCount++;
   }
 
   if (status) {
-    fetchQuery += ` AND status = $${paramCount}`;
+    queryConditions.push(`status = $${paramCount}`);
     queryParams.push(status);
     paramCount++;
   }
 
-  // Urutkan dari yang terbaru
-  fetchQuery += ` ORDER BY created_at DESC`;
+  if (search && String(search).trim()) {
+    queryConditions.push(`(title ILIKE $${paramCount} OR description ILIKE $${paramCount} OR created_by ILIKE $${paramCount})`);
+    queryParams.push(`%${String(search).trim()}%`);
+    paramCount++;
+  }
+
+  // Construct WHERE clause
+  const whereClause = queryConditions.length > 0 ? ' WHERE ' + queryConditions.join(' AND ') : '';
+
+  const countQuery = `SELECT COUNT(*) FROM incident_logs${whereClause}`;
+  const dataQuery = `SELECT * FROM incident_logs${whereClause} ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
 
   try {
-    const result = await pool.query(fetchQuery, queryParams);
-    res.status(200).json({ data: result.rows });
+    // Ambil total count data
+    const countResult = await pool.query(countQuery, queryParams);
+    const totalItems = parseInt(countResult.rows[0].count, 10);
+
+    // Ambil data dengan LIMIT dan OFFSET
+    const dataResult = await pool.query(dataQuery, [...queryParams, parsedLimit, offset]);
+
+    const totalPages = Math.ceil(totalItems / parsedLimit);
+
+    res.status(200).json({
+      data: dataResult.rows,
+      pagination: {
+        totalItems,
+        totalPages,
+        currentPage: parsedPage,
+        limit: parsedLimit
+      }
+    });
   } catch (err) {
     console.error('API Error:', err);
     res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
