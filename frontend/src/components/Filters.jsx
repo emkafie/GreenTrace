@@ -1,6 +1,14 @@
-import { Filter, Search } from 'lucide-react';
+import { Filter, Search, Trash2 } from 'lucide-react';
 
-export default function Filters({ filters, onFilterChange, searchQuery, onSearchChange }) {
+export default function Filters({
+  filters,
+  onFilterChange,
+  searchQuery,
+  onSearchChange,
+  isAdmin,
+  includeDeleted,
+  onToggleDeleted,
+}) {
   const handleChange = (key, value) => {
     onFilterChange({ ...filters, [key]: value });
   };
@@ -42,6 +50,23 @@ export default function Filters({ filters, onFilterChange, searchQuery, onSearch
         <option value="IN_PROGRESS">In Progress</option>
         <option value="RESOLVED">Resolved</option>
       </select>
+
+      {/* Admin only: show deleted toggle */}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={onToggleDeleted}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+            includeDeleted
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+          }`}
+          title="Tampilkan / Sembunyikan data yang sudah dihapus"
+        >
+          <Trash2 size={14} />
+          {includeDeleted ? 'Sembunyikan Terhapus' : 'Tampilkan Terhapus'}
+        </button>
+      )}
     </div>
   );
 }
