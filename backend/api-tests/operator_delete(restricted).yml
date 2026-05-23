@@ -1,0 +1,18 @@
+info:
+  name: operator_delete(restricted)
+  type: http
+  seq: 20
+
+http:
+  method: DELETE
+  url: http://localhost:3000/api/incidents/6
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwidXNlcm5hbWUiOiJvcGVyYXRvcl9zYXR1Iiwicm9sZSI6Ik9QRVJBVE9SIiwiaWF0IjoxNzc5NTQyNTQ0LCJleHAiOjE3Nzk1NzEzNDR9.S35DoHPh6SGBJ8v46u2ucAgtnA-TrqDUxsTE29t88-A
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

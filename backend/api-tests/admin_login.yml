@@ -1,0 +1,26 @@
+info:
+  name: admin_login
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:3000/api/auth/login
+  headers:
+    - name: ""
+      value: ""
+      disabled: true
+  body:
+    type: json
+    data: |-
+      {
+        "username": "admin_utama",
+        "password": "admin123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

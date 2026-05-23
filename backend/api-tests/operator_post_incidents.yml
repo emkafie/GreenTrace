@@ -1,0 +1,25 @@
+info:
+  name: operator_post_incidents
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: http://localhost:3000/api/incidents
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwidXNlcm5hbWUiOiJvcGVyYXRvcl9zYXR1Iiwicm9sZSI6Ik9QRVJBVE9SIiwiaWF0IjoxNzc5NTQyNTQ0LCJleHAiOjE3Nzk1NzEzNDR9.S35DoHPh6SGBJ8v46u2ucAgtnA-TrqDUxsTE29t88-A
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Terjadi kebakaran di gudang",
+        "description": "Ada percikan api dan kebakaran kecil."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

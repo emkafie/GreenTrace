@@ -1,0 +1,24 @@
+info:
+  name: admin_update_keyword
+  type: http
+  seq: 14
+
+http:
+  method: PUT
+  url: http://localhost:3000/api/settings/keywords
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbl91dGFtYSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3OTU0MTc0MCwiZXhwIjoxNzc5NTcwNTQwfQ.dwh0h37BkURpBB90VrKA3itNlqsqV-4aD7x9wjvlg7c
+  body:
+    type: json
+    data: |
+      {
+        "keywords": ["meledak","bocor","mati total","kebakaran","kritis","banjir","gempa,mati","patah","roboh","hancur"]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

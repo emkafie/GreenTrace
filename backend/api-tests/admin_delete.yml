@@ -1,0 +1,18 @@
+info:
+  name: admin_delete
+  type: http
+  seq: 9
+
+http:
+  method: DELETE
+  url: http://localhost:3000/api/incidents/5
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbl91dGFtYSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3OTU0MTc0MCwiZXhwIjoxNzc5NTcwNTQwfQ.dwh0h37BkURpBB90VrKA3itNlqsqV-4aD7x9wjvlg7c
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
