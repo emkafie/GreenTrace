@@ -127,17 +127,25 @@ const setupDatabase = async () => {
       console.log("✅ Default users seeded (admin_utama / operator_satu).");
     }
 
-    // Seed default keywords (hanya jika belum ada)
-    const existingSettings = await pool.query(
-      `SELECT COUNT(*) FROM system_settings WHERE key = 'URGENT_KEYWORDS'`
-    );
-    if (parseInt(existingSettings.rows[0].count) === 0) {
-      await pool.query(
-        `INSERT INTO system_settings (key, value) VALUES ($1, $2)`,
-        ['URGENT_KEYWORDS', 'meledak,bocor,mati total,kebakaran,kritis,berhenti operasi']
+    // Seed default keywords per severity tier (hanya jika belum ada)
+    const keywordSeeds = [
+      ['CRITICAL_KEYWORDS', 'meledak,kebakaran,mati total,amonia bocor,kecelakaan,kritis'],
+      ['HIGH_KEYWORDS', 'bocor,konslet,overheat,tumpah,tekanan drop,rusak parah'],
+      ['MEDIUM_KEYWORDS', 'tersumbat,lambat,berisik,aus,kotor,error mesin'],
+    ];
+    for (const [key, value] of keywordSeeds) {
+      const existing = await pool.query(
+        `SELECT COUNT(*) FROM system_settings WHERE key = $1`, [key]
       );
-      console.log("✅ Default urgent keywords seeded.");
+      if (parseInt(existing.rows[0].count) === 0) {
+        await pool.query(
+          `INSERT INTO system_settings (key, value) VALUES ($1, $2)`, [key, value]
+        );
+      }
     }
+    // Migrasi: hapus key lama URGENT_KEYWORDS jika masih ada
+    await pool.query(`DELETE FROM system_settings WHERE key = 'URGENT_KEYWORDS'`);
+    console.log("✅ Default severity keywords seeded (CRITICAL / HIGH / MEDIUM).");
   } catch (err) {
     console.error("❌ DB Setup Error:", err);
   }
@@ -173,30 +181,57 @@ const isAdmin = (req, res, next) => {
 };
 
 // ==========================================
-// 3. LOGIC DETEKSI ANOMALI (DYNAMIC KEYWORDS)
+// 3. LOGIC DETEKSI ANOMALI (MULTI-TIER KEYWORDS)
 // ==========================================
-const detectAnomaly = async (description = '', title = '') => {
-  // Ambil keywords dari database
-  let urgentKeywords = ['meledak', 'bocor', 'mati total', 'kebakaran', 'kritis', 'berhenti operasi'];
 
+// Default keywords per severity tier
+const DEFAULT_KEYWORDS = {
+  CRITICAL_KEYWORDS: ['meledak', 'kebakaran', 'mati total', 'amonia bocor', 'kecelakaan', 'kritis'],
+  HIGH_KEYWORDS: ['bocor', 'konslet', 'overheat', 'tumpah', 'tekanan drop', 'rusak parah'],
+  MEDIUM_KEYWORDS: ['tersumbat', 'lambat', 'berisik', 'aus', 'kotor', 'error mesin'],
+};
+
+// Helper: ambil keywords dari DB untuk semua tier
+const fetchAllKeywords = async () => {
+  const tiers = {};
   try {
     const result = await pool.query(
-      `SELECT value FROM system_settings WHERE key = 'URGENT_KEYWORDS'`
+      `SELECT key, value FROM system_settings WHERE key IN ('CRITICAL_KEYWORDS', 'HIGH_KEYWORDS', 'MEDIUM_KEYWORDS')`
     );
-    if (result.rows.length > 0) {
-      urgentKeywords = result.rows[0].value.split(',').map(k => k.trim()).filter(Boolean);
+    for (const row of result.rows) {
+      tiers[row.key] = row.value.split(',').map(k => k.trim()).filter(Boolean);
     }
   } catch (err) {
     console.error('⚠️ Gagal mengambil keywords dari DB, menggunakan default:', err.message);
   }
 
-  const lowerDesc = String(description || '').toLowerCase();
-  const lowerTitle = String(title || '').toLowerCase();
+  return {
+    critical: tiers.CRITICAL_KEYWORDS || DEFAULT_KEYWORDS.CRITICAL_KEYWORDS,
+    high: tiers.HIGH_KEYWORDS || DEFAULT_KEYWORDS.HIGH_KEYWORDS,
+    medium: tiers.MEDIUM_KEYWORDS || DEFAULT_KEYWORDS.MEDIUM_KEYWORDS,
+  };
+};
 
-  const isAnomaly = urgentKeywords.some(
-    keyword => lowerDesc.includes(keyword.toLowerCase()) || lowerTitle.includes(keyword.toLowerCase())
-  );
-  return isAnomaly;
+// Helper: cek apakah teks mengandung salah satu keyword
+const matchesAny = (text, keywords) => {
+  return keywords.some(kw => text.includes(kw.toLowerCase()));
+};
+
+const detectAnomaly = async (description = '', title = '') => {
+  const allKeywords = await fetchAllKeywords();
+  const combined = (String(title || '') + ' ' + String(description || '')).toLowerCase();
+
+  // Prioritas: CRITICAL > HIGH > MEDIUM > LOW
+  if (matchesAny(combined, allKeywords.critical)) {
+    return { isAnomaly: true, severity: 'CRITICAL' };
+  }
+  if (matchesAny(combined, allKeywords.high)) {
+    return { isAnomaly: true, severity: 'HIGH' };
+  }
+  if (matchesAny(combined, allKeywords.medium)) {
+    return { isAnomaly: true, severity: 'MEDIUM' };
+  }
+  return { isAnomaly: false, severity: 'LOW' };
 };
 
 
@@ -267,42 +302,54 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
 // 5. SETTINGS ENDPOINTS (ADMIN ONLY)
 // ==========================================
 
-// Get Urgent Keywords
+// Get All Severity Keywords — GET /api/settings/keywords
 app.get('/api/settings/keywords', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT value FROM system_settings WHERE key = 'URGENT_KEYWORDS'`
+      `SELECT key, value FROM system_settings WHERE key IN ('CRITICAL_KEYWORDS', 'HIGH_KEYWORDS', 'MEDIUM_KEYWORDS')`
     );
 
-    const keywords = result.rows.length > 0
-      ? result.rows[0].value.split(',').map(k => k.trim()).filter(Boolean)
-      : [];
+    const parse = (key) => {
+      const row = result.rows.find(r => r.key === key);
+      return row ? row.value.split(',').map(k => k.trim()).filter(Boolean) : [];
+    };
 
-    res.status(200).json({ keywords });
+    res.status(200).json({
+      critical: parse('CRITICAL_KEYWORDS'),
+      high: parse('HIGH_KEYWORDS'),
+      medium: parse('MEDIUM_KEYWORDS'),
+    });
   } catch (err) {
     console.error('API Error:', err);
     res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
   }
 });
 
-// Update Urgent Keywords
+// Update All Severity Keywords — PUT /api/settings/keywords
 app.put('/api/settings/keywords', verifyToken, isAdmin, async (req, res) => {
-  const { keywords } = req.body;
+  const { critical, high, medium } = req.body;
 
-  if (!Array.isArray(keywords)) {
-    return res.status(400).json({ error: 'Keywords harus berupa array.' });
+  // Validasi: semua harus array
+  if (!Array.isArray(critical) || !Array.isArray(high) || !Array.isArray(medium)) {
+    return res.status(400).json({ error: 'critical, high, dan medium harus berupa array.' });
   }
 
-  const keywordsString = keywords.map(k => k.trim()).filter(Boolean).join(',');
+  const toStr = (arr) => arr.map(k => k.trim()).filter(Boolean).join(',');
 
   try {
-    await pool.query(
-      `INSERT INTO system_settings (key, value) VALUES ('URGENT_KEYWORDS', $1)
-       ON CONFLICT (key) DO UPDATE SET value = $1`,
-      [keywordsString]
-    );
+    const upsert = `INSERT INTO system_settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $2`;
 
-    res.status(200).json({ message: 'Keywords berhasil diperbarui.', keywords: keywordsString.split(',') });
+    await pool.query(upsert, ['CRITICAL_KEYWORDS', toStr(critical)]);
+    await pool.query(upsert, ['HIGH_KEYWORDS', toStr(high)]);
+    await pool.query(upsert, ['MEDIUM_KEYWORDS', toStr(medium)]);
+
+    res.status(200).json({
+      message: 'Keywords berhasil diperbarui.',
+      critical: toStr(critical).split(','),
+      high: toStr(high).split(','),
+      medium: toStr(medium).split(','),
+    });
   } catch (err) {
     console.error('API Error:', err);
     res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
@@ -321,10 +368,9 @@ app.post('/api/incidents', verifyToken, async (req, res) => {
     return res.status(400).json({ error: "Title dan Description wajib diisi" });
   }
 
-  // Terapkan Anomaly Logic (sekarang async — mengambil keywords dari DB)
-  const isAnomaly = await detectAnomaly(description, title);
-  console.log(`Deteksi Anomali: ${isAnomaly}`);
-  const severity = isAnomaly ? 'CRITICAL' : 'LOW';
+  // Terapkan Anomaly Logic — multi-tier keyword detection
+  const { isAnomaly, severity } = await detectAnomaly(description, title);
+  console.log(`Deteksi Anomali: ${isAnomaly}, Severity: ${severity}`);
 
   try {
     const insertQuery = `
