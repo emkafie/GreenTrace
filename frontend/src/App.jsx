@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from './contexts/AuthContext';
+import LoginPage from './components/LoginPage';
 import Header from './components/Header';
 import Filters from './components/Filters';
 import IncidentList from './components/IncidentList';
 import CreateIncidentModal from './components/CreateIncidentModal';
 import ConfirmModal from './components/ConfirmModal';
+import SettingsModal from './components/SettingsModal';
 import {
   fetchIncidents as apiFetchIncidents,
   createIncident,
@@ -12,35 +15,41 @@ import {
 } from './services/incidentApi';
 
 export default function App() {
+  const { user, loading: authLoading, logout } = useAuth();
+
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ severity: '', status: '' });
   const [showModal, setShowModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [includeDeleted, setIncludeDeleted] = useState(false);
 
   // Confirmation modal state
   const [confirmAction, setConfirmAction] = useState(null);
-  // { action: 'IN_PROGRESS' | 'RESOLVED' | 'DELETE', id: number, title: string }
+
+  const isAdmin = user?.role === 'ADMIN';
 
   // ---- Data fetching ----
   const loadIncidents = async () => {
     setLoading(true);
     try {
-      const data = await apiFetchIncidents(filters);
+      const data = await apiFetchIncidents(filters, isAdmin && includeDeleted);
       setIncidents(data);
     } catch (error) {
       console.error('Gagal mengambil data:', error);
-      alert('Gagal terhubung ke server backend.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!user) return; // Don't fetch if not logged in
+
     let ignore = false;
     const fetchData = async () => {
       try {
-        const data = await apiFetchIncidents(filters);
+        const data = await apiFetchIncidents(filters, isAdmin && includeDeleted);
         if (!ignore) {
           setIncidents(data);
           setLoading(false);
@@ -48,7 +57,6 @@ export default function App() {
       } catch (error) {
         if (!ignore) {
           console.error('Gagal mengambil data:', error);
-          alert('Gagal terhubung ke server backend.');
           setLoading(false);
         }
       }
@@ -58,7 +66,7 @@ export default function App() {
     return () => {
       ignore = true;
     };
-  }, [filters]);
+  }, [filters, includeDeleted, user]);
 
   // ---- Client-side search filtering ----
   const filteredIncidents = useMemo(() => {
@@ -88,7 +96,6 @@ export default function App() {
     }
   };
 
-  // Instead of directly calling the API, open confirmation modal
   const handleRequestUpdateStatus = (id, newStatus) => {
     const incident = incidents.find((inc) => inc.id === id);
     setConfirmAction({ action: newStatus, id, title: incident?.title || '' });
@@ -99,7 +106,6 @@ export default function App() {
     setConfirmAction({ action: 'DELETE', id, title: incident?.title || '' });
   };
 
-  // Actual confirm handler — called when user clicks "Ya, ..."
   const handleConfirm = async () => {
     if (!confirmAction) return;
     const { action, id } = confirmAction;
@@ -117,21 +123,45 @@ export default function App() {
     }
   };
 
+  // ---- Auth loading state ----
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-gray-400 animate-pulse text-lg">Memuat...</div>
+      </div>
+    );
+  }
+
+  // ---- Not logged in → show login page ----
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  // ---- Logged in → show dashboard ----
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <Header onOpenModal={() => setShowModal(true)} />
+        <Header
+          user={user}
+          onOpenModal={() => setShowModal(true)}
+          onOpenSettings={() => setShowSettings(true)}
+          onLogout={logout}
+        />
         <Filters
           filters={filters}
           onFilterChange={handleFilterChange}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          isAdmin={isAdmin}
+          includeDeleted={includeDeleted}
+          onToggleDeleted={() => setIncludeDeleted(!includeDeleted)}
         />
         <IncidentList
           incidents={filteredIncidents}
           loading={loading}
           onUpdateStatus={handleRequestUpdateStatus}
           onDelete={handleRequestDelete}
+          userRole={user.role}
         />
       </div>
 
@@ -149,6 +179,10 @@ export default function App() {
           onConfirm={handleConfirm}
           onCancel={() => setConfirmAction(null)}
         />
+      )}
+
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
       )}
     </div>
   );
