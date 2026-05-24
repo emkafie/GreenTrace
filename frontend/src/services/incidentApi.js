@@ -30,6 +30,7 @@ export const fetchIncidents = async (filters = {}, includeDeleted = false, page 
   const queryParams = new URLSearchParams();
   if (filters.severity) queryParams.append('severity', filters.severity);
   if (filters.status) queryParams.append('status', filters.status);
+  if (filters.area) queryParams.append('area', filters.area);
   if (includeDeleted) queryParams.append('include_deleted', 'true');
   queryParams.append('page', page);
   queryParams.append('limit', limit);

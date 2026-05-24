@@ -76,6 +76,7 @@ const setupDatabase = async () => {
       status VARCHAR(50) DEFAULT 'OPEN',
       is_anomaly BOOLEAN DEFAULT FALSE,
       created_by VARCHAR(100) DEFAULT 'System',
+      area VARCHAR(100) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       deleted_at TIMESTAMP NULL
@@ -109,6 +110,8 @@ const setupDatabase = async () => {
 
   try {
     await pool.query(createIncidentTable);
+    // Jalankan migrasi mandiri untuk menambah kolom 'area' jika tabel sudah ada sebelumnya
+    await pool.query(`ALTER TABLE incident_logs ADD COLUMN IF NOT EXISTS area VARCHAR(100);`);
     await pool.query(createUsersTable);
     await pool.query(createSettingsTable);
     await pool.query(createIndexQuery);
@@ -362,7 +365,7 @@ app.put('/api/settings/keywords', verifyToken, isAdmin, async (req, res) => {
 
 // A. Create Incident (POST) + Auto Anomaly Detection
 app.post('/api/incidents', verifyToken, async (req, res) => {
-  const { title, description, created_by } = req.body;
+  const { title, description, created_by, area } = req.body;
 
   if (!title || !description) {
     return res.status(400).json({ error: "Title dan Description wajib diisi" });
@@ -374,13 +377,13 @@ app.post('/api/incidents', verifyToken, async (req, res) => {
 
   try {
     const insertQuery = `
-      INSERT INTO incident_logs (title, description, severity, is_anomaly, created_by)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO incident_logs (title, description, severity, is_anomaly, created_by, area)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *;
     `;
     // Gunakan username dari token jika created_by tidak diberikan
     const reporter = created_by || req.user.username || 'User';
-    const values = [title, description, severity, isAnomaly, reporter];
+    const values = [title, description, severity, isAnomaly, reporter, area || null];
 
     const result = await pool.query(insertQuery, values);
     res.status(201).json({
@@ -393,9 +396,9 @@ app.post('/api/incidents', verifyToken, async (req, res) => {
   }
 });
 
-// B. Read All Incidents (GET) — mendukung include_deleted, pagination, dan search
+// B. Read All Incidents (GET) — mendukung include_deleted, pagination, search, dan area filter
 app.get('/api/incidents', verifyToken, async (req, res) => {
-  const { severity, status, include_deleted, page = 1, limit = 10, search = '' } = req.query;
+  const { severity, status, area, include_deleted, page = 1, limit = 10, search = '' } = req.query;
 
   const parsedPage = Math.max(1, parseInt(page) || 1);
   const parsedLimit = Math.max(1, Math.min(100, parseInt(limit) || 10));
@@ -424,8 +427,14 @@ app.get('/api/incidents', verifyToken, async (req, res) => {
     paramCount++;
   }
 
+  if (area) {
+    queryConditions.push(`area = $${paramCount}`);
+    queryParams.push(area);
+    paramCount++;
+  }
+
   if (search && String(search).trim()) {
-    queryConditions.push(`(title ILIKE $${paramCount} OR description ILIKE $${paramCount} OR created_by ILIKE $${paramCount})`);
+    queryConditions.push(`(title ILIKE $${paramCount} OR description ILIKE $${paramCount} OR created_by ILIKE $${paramCount} OR area ILIKE $${paramCount})`);
     queryParams.push(`%${String(search).trim()}%`);
     paramCount++;
   }

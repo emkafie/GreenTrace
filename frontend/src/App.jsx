@@ -19,7 +19,7 @@ export default function App() {
 
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ severity: '', status: '' });
+  const [filters, setFilters] = useState({ severity: '', status: '', area: '' });
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

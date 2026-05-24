@@ -72,6 +72,22 @@ export default function Filters({
         <option value="RESOLVED">Resolved</option>
       </select>
 
+      <select
+        className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white text-gray-800"
+        value={filters.area || ''}
+        onChange={(e) => handleChange('area', e.target.value)}
+      >
+        <option value="">Semua Area</option>
+        <option value="Gudang Bahan Baku">Gudang Bahan Baku</option>
+        <option value="Line Produksi A">Line Produksi A</option>
+        <option value="Line Produksi B">Line Produksi B</option>
+        <option value="Area Pengolahan Susu">Area Pengolahan Susu</option>
+        <option value="Instalasi WTP (Water Treatment)">Instalasi WTP (Water Treatment)</option>
+        <option value="Gudang Pendingin (Cold Storage)">Gudang Pendingin (Cold Storage)</option>
+        <option value="Laboratorium QC">Laboratorium QC</option>
+        <option value="Area Gardu Listrik">Area Gardu Listrik</option>
+      </select>
+
       {/* Admin only: show deleted toggle */}
       {isAdmin && (
         <button

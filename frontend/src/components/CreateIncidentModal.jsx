@@ -6,11 +6,19 @@ export default function CreateIncidentModal({ onClose, onSubmit }) {
     description: '',
     created_by: '',
   });
+  const [areaSelect, setAreaSelect] = useState('');
+  const [customArea, setCustomArea] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await onSubmit(formData);
+    const finalArea = areaSelect === 'Lainnya' ? customArea.trim() : areaSelect;
+    await onSubmit({
+      ...formData,
+      area: finalArea || null,
+    });
     setFormData({ title: '', description: '', created_by: '' });
+    setAreaSelect('');
+    setCustomArea('');
   };
 
   return (
@@ -48,6 +56,43 @@ export default function CreateIncidentModal({ onClose, onSubmit }) {
               }
             ></textarea>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lokasi Area Kejadian
+            </label>
+            <select
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 bg-white text-gray-800"
+              value={areaSelect}
+              onChange={(e) => setAreaSelect(e.target.value)}
+            >
+              <option value="">-- Pilih Area Lokasi --</option>
+              <option value="Gudang Bahan Baku">Gudang Bahan Baku</option>
+              <option value="Line Produksi A">Line Produksi A</option>
+              <option value="Line Produksi B">Line Produksi B</option>
+              <option value="Area Pengolahan Susu">Area Pengolahan Susu</option>
+              <option value="Instalasi WTP (Water Treatment)">Instalasi WTP (Water Treatment)</option>
+              <option value="Gudang Pendingin (Cold Storage)">Gudang Pendingin (Cold Storage)</option>
+              <option value="Laboratorium QC">Laboratorium QC</option>
+              <option value="Area Gardu Listrik">Area Gardu Listrik</option>
+              <option value="Lainnya">Lainnya (Spesifikasikan)</option>
+            </select>
+          </div>
+          {areaSelect === 'Lainnya' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Spesifikasi Area Kustom
+              </label>
+              <input
+                required
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+                placeholder="Contoh: Ruang Generator Utama"
+                value={customArea}
+                onChange={(e) => setCustomArea(e.target.value)}
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nama Pelapor

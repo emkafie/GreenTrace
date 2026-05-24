@@ -78,10 +78,11 @@ Sistem terdiri dari dua bagian utama yang terpisah secara fisik: **Frontend SPA*
 │  │  status               │   │ role          │   │ (comma-sep list) │  │
 │  │  is_anomaly           │   └──────────────┘   └──────────────────┘  │
 │  │  created_by           │                                              │
-│  │  created_at           │   Indexes:                                   │
-│  │  updated_at           │   • idx_incident_severity                    │
-│  │  deleted_at (soft)    │   • idx_incident_status                      │
-│  └──────────────────────┘   • idx_incident_created_at                  │
+│  │  area                 │   Indexes:                                   │
+│  │  created_at           │   • idx_incident_severity                    │
+│  │  updated_at           │   • idx_incident_status                      │
+│  │  deleted_at (soft)    │   • idx_incident_created_at                  │
+│  └──────────────────────┘                                              │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,6 +148,7 @@ GreenTrace/
 | `status` | VARCHAR(50) | `OPEN`, `IN_PROGRESS`, atau `RESOLVED` |
 | `is_anomaly` | BOOLEAN | True jika terdeteksi anomali berbahaya |
 | `created_by` | VARCHAR(100) | Username pelapor (default: dari JWT token) |
+| `area` | VARCHAR(100) | Lokasi area di mana insiden terjadi |
 | `created_at` | TIMESTAMP | Waktu dibuat (default: now) |
 | `updated_at` | TIMESTAMP | Waktu terakhir diupdate |
 | `deleted_at` | TIMESTAMP | Soft-delete marker, NULL jika aktif |

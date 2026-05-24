@@ -1,4 +1,4 @@
-import { Trash2, CheckCircle, Clock } from 'lucide-react';
+import { Trash2, CheckCircle, Clock, MapPin } from 'lucide-react';
 import { SeverityBadge, StatusBadge } from '../utils/badges';
 import { getRowStyle } from '../utils/styles';
 
@@ -42,6 +42,12 @@ export default function IncidentCard({ incident, onUpdateStatus, onDelete, userR
           {isDeleted && (
             <span className="px-2 py-1 bg-red-100 text-red-600 rounded text-xs font-bold">
               TERHAPUS
+            </span>
+          )}
+          {incident.area && (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100/50 rounded-md text-xs font-semibold">
+              <MapPin size={11} className="text-emerald-600 stroke-[2.5]" />
+              {incident.area}
             </span>
           )}
           <span className="text-xs text-gray-400 font-medium ml-2">
